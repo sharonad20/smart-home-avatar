@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;700&display=swap');
+
+:root {
+  --color-idle: #6366f1;
+  --color-listening: #06b6d4;
+  --color-thinking: #f59e0b;
+  --color-speaking: #10b981;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #050510;
+  direction: rtl;
+  font-family: 'Noto Sans Hebrew', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#__next,
+main {
+  height: 100%;
+  width: 100%;
+}
+
+/* Orb glow animations */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50%       { transform: scale(1.06); opacity: 1; }
+}
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes orbit-spin-reverse {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+
+@keyframes waveform-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50%      { transform: scaleY(1); }
+}
+
+@keyframes float-particle {
+  0%   { transform: translateY(0px) translateX(0px); opacity: 0.4; }
+  33%  { transform: translateY(-15px) translateX(8px); opacity: 0.7; }
+  66%  { transform: translateY(-8px) translateX(-5px); opacity: 0.5; }
+  100% { transform: translateY(0px) translateX(0px); opacity: 0.4; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-20px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes bar-dance {
+  0%, 100% { height: 4px; }
+  50%      { height: 28px; }
+}
+
+.orb-idle     { animation: breathe 4s ease-in-out infinite; }
+.orb-listening { animation: breathe 1.5s ease-in-out infinite; }
+.orb-thinking  { animation: breathe 2s ease-in-out infinite; }
+.orb-speaking  { animation: breathe 0.8s ease-in-out infinite; }
+
+.ring-spin        { animation: orbit-spin 3s linear infinite; }
+.ring-spin-slow   { animation: orbit-spin 6s linear infinite; }
+.ring-spin-reverse { animation: orbit-spin-reverse 4s linear infinite; }
+
+.pulse-ring-anim {
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.device-panel-enter {
+  animation: slide-down 0.25s ease-out forwards;
+}
+
+/* Scrollbar for device panel */
+.device-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.device-scroll::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+}
+.device-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+}
