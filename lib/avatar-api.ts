@@ -19,17 +19,17 @@ const MOCK_RULES: Array<{
 }> = [
   {
     keywords: ['הדלק אור', 'הדלק את האור', 'תדליק אור'],
-    response: 'הדלקתי את האור! אנרגיה, לפי E שווה mc בריבוע, אינה הולכת לאיבוד.',
+    response: 'הדלקתי את האור בסלון',
     actions: [{ type: 'toggle_device', deviceId: 'light-living', state: true }],
   },
   {
     keywords: ['כבה אור', 'כבה את האור', 'תכבה אור'],
-    response: 'כיביתי. גם בחשיכה המחשבה ממשיכה לזרוח.',
+    response: 'כיביתי את האור',
     actions: [{ type: 'toggle_device', deviceId: 'light-living', state: false }],
   },
   {
     keywords: ['הפעל מזגן', 'הדלק מזגן', 'תפעיל מזגן'],
-    response: 'הפעלתי את המזגן על עשרים וארבע מעלות. הטמפרטורה, כמו הזמן, היא יחסית.',
+    response: 'הפעלתי את המזגן על עשרים וארבע מעלות',
     actions: [
       { type: 'toggle_device', deviceId: 'ac-main', state: true },
       { type: 'set_temperature', value: 24 },
@@ -37,42 +37,42 @@ const MOCK_RULES: Array<{
   },
   {
     keywords: ['כבה מזגן', 'כיבוי מזגן'],
-    response: 'כיביתי את המזגן. מעט אי-נוחות מחדדת את המחשבה.',
+    response: 'כיביתי את המזגן',
     actions: [{ type: 'toggle_device', deviceId: 'ac-main', state: false }],
   },
   {
     keywords: ['מה הטמפרטורה', 'כמה חם', 'כמה קר'],
-    response: 'שלושים ואחת מעלות בחוץ. המזגן מכוון לעשרים וארבע. הכל יחסי, ידידי.',
+    response: 'הטמפרטורה בחוץ שלושים ואחת מעלות, המזגן מכוון לעשרים וארבע',
     actions: [],
   },
   {
     keywords: ['סגור תריסים', 'סגור את התריסים', 'הורד תריסים'],
-    response: 'סוגר תריסים. קצת צל — מושלם להרהורים עמוקים.',
+    response: 'סוגר תריסים',
     actions: [{ type: 'toggle_device', deviceId: 'shutter-living', state: false }],
   },
   {
     keywords: ['פתח תריסים', 'הרם תריסים', 'פתח את התריסים'],
-    response: 'פותח תריסים. האור — הדבר המהיר ביותר ביקום — יכנס פנימה.',
+    response: 'פותח תריסים',
     actions: [{ type: 'toggle_device', deviceId: 'shutter-living', state: true }],
   },
   {
     keywords: ['הדלק טלוויזיה', 'הפעל טלוויזיה', 'תדליק טלוויזיה'],
-    response: 'מפעיל טלוויזיה. דמיון, אמרתי תמיד, חשוב מידע.',
+    response: 'מפעיל טלוויזיה',
     actions: [{ type: 'toggle_device', deviceId: 'tv-living', state: true }],
   },
   {
     keywords: ['כבה טלוויזיה', 'כיבוי טלוויזיה'],
-    response: 'מכבה. שקט הוא הקרקע שממנה צומחות רעיונות גדולים.',
+    response: 'מכבה טלוויזיה',
     actions: [{ type: 'toggle_device', deviceId: 'tv-living', state: false }],
   },
   {
     keywords: ['שלום', 'היי', 'הי', 'בוקר טוב', 'ערב טוב'],
-    response: 'שלום! אלברט כאן, מוכן לעזור. שאל — ואנסה לחשוב יחד איתך.',
+    response: 'שלום! אני אלברט, מוכן לעזור',
     actions: [],
   },
   {
-    keywords: ['מי אתה', 'מי אתה?', 'מה שמך'],
-    response: 'אני אלברט, עוזר הבית החכם שלך. פיזיקה זה תחביב — ניהול הבית זה תפקידי.',
+    keywords: ['מי אתה', 'מה שמך'],
+    response: 'אני אלברט, עוזר הבית החכם שלך',
     actions: [],
   },
 ];
@@ -89,7 +89,7 @@ export async function processCommand(transcript: string): Promise<CommandRespons
   }
 
   return {
-    responseText: 'הבנתי את הבקשה. כשאתחבר ל-Home Assistant בגרסה הבאה, אבצע אותה.',
+    responseText: 'הבנתי את הבקשה. בגרסה המלאה אחבר ל-Home Assistant',
     actions: [],
   };
 }
