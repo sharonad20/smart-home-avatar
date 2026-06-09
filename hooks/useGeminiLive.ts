@@ -215,8 +215,8 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     if (turnActiveRef.current) return;
 
-    // Open mic for this turn (released after turn ends so SpeechRecognition can use it between turns)
-    if (!streamRef.current || !captureCtxRef.current) {
+    // Open mic + AudioContext on first turn; reuse on subsequent turns
+    if (!streamRef.current || !captureCtxRef.current || captureCtxRef.current.state === 'closed') {
       try {
         const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current     = mic;
@@ -225,6 +225,11 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
         console.error('[GeminiLive] mic open failed', err);
         return;
       }
+    }
+
+    // Chrome on mobile auto-suspends idle AudioContexts — always resume before use
+    if (captureCtxRef.current.state === 'suspended') {
+      await captureCtxRef.current.resume();
     }
 
     turnActiveRef.current   = true;
