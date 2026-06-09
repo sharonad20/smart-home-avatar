@@ -23,6 +23,20 @@ import { type Device } from '@/lib/devices';
 export default function HomePage() {
   const avatarState = useAvatarState();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  useEffect(() => {
+    const orig = console.log.bind(console);
+    console.log = (...args: unknown[]) => {
+      orig(...args);
+      const msg = args.map(String).join(' ');
+      if (msg.startsWith('[STT]') || msg.startsWith('[GeminiLive]')) {
+        setDebugLogs((prev) => [...prev.slice(-30), msg]);
+      }
+    };
+    return () => { console.log = orig; };
+  }, []);
 
   useEffect(() => {
     fetchDevices().then((real) => { if (real.length > 0) setDevices(real); });
