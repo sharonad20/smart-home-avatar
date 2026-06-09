@@ -123,6 +123,7 @@ export function useSpeechRecognition({
       if (modeRef.current === 'wake') {
         onInterimTranscriptRef.current('');
         const combined = (interim + final).trim();
+        if (combined) console.log('[STT] heard:', combined);
 
         if (containsWakeWord(combined)) {
           const rest = stripWakeWord(combined).trim();
@@ -173,12 +174,13 @@ export function useSpeechRecognition({
     };
 
     r.onerror = (e) => {
+      console.log('[STT] error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         setIsSupported(false);
         isActiveRef.current = false;
         setIsListeningForWake(false);
       }
-      // network / no-speech — recoverable, onend will restart
+      // network / no-speech / aborted — recoverable, onend will restart
     };
 
     return () => {

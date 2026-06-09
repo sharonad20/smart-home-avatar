@@ -1,6 +1,9 @@
 'use client';
 
-export const WAKE_WORDS = ['אלברט', 'albert', 'hey albert'];
+export const WAKE_WORDS = [
+  'אלברט', 'albert', 'hey albert', 'הי אלברט', 'היי אלברט',
+  'albrt', 'albart', 'alberta', 'elbert', 'hal bert',
+];
 
 export function containsWakeWord(transcript: string): boolean {
   const lower = transcript.trim().toLowerCase();
