@@ -138,8 +138,10 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
     srcNodeRef.current?.disconnect();
     procRef.current    = null;
     srcNodeRef.current = null;
-    // Keep stream + AudioContext open — just disconnect the ScriptProcessor.
-    // SpeechRecognition coexists fine with an idle AudioContext on the same mic.
+    // Release mic tracks so SpeechRecognition can reclaim the mic.
+    // Keep captureCtxRef alive to avoid AudioContext creation click on next turn.
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
     emit('idle');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -215,21 +217,20 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     if (turnActiveRef.current) return;
 
-    // Open mic + AudioContext on first turn; reuse on subsequent turns
-    if (!streamRef.current || !captureCtxRef.current || captureCtxRef.current.state === 'closed') {
-      try {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current     = mic;
-        captureCtxRef.current = new AudioContext({ sampleRate: 16000 });
-      } catch (err) {
-        console.error('[GeminiLive] mic open failed', err);
-        return;
-      }
+    // AudioContext persists across turns (avoids click); mic track opened fresh each turn
+    // so SpeechRecognition can reclaim the mic between turns.
+    if (!captureCtxRef.current || captureCtxRef.current.state === 'closed') {
+      captureCtxRef.current = new AudioContext({ sampleRate: 16000 });
     }
-
-    // Chrome on mobile auto-suspends idle AudioContexts — always resume before use
     if (captureCtxRef.current.state === 'suspended') {
       await captureCtxRef.current.resume();
+    }
+    try {
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = mic;
+    } catch (err) {
+      console.error('[GeminiLive] mic open failed', err);
+      return;
     }
 
     turnActiveRef.current   = true;
