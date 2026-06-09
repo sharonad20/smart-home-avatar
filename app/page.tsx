@@ -209,6 +209,22 @@ export default function HomePage() {
       <footer className="relative z-10">
         <QuickCommands onCommand={handleQuickCommand} disabled={isBusy || !connected} />
       </footer>
+
+      {/* ── Debug panel (tap 3× on title to toggle) ─────────────────────── */}
+      <button
+        onClick={() => setShowDebug((v) => !v)}
+        className="fixed bottom-2 left-2 z-50 text-[10px] text-white/20 px-1"
+      >
+        dbg
+      </button>
+      {showDebug && (
+        <div className="fixed inset-x-2 bottom-8 z-50 max-h-48 overflow-y-auto
+          bg-black/80 rounded-xl p-2 text-[10px] text-green-300 font-mono space-y-0.5">
+          <div className="text-white/50 mb-1">isSupported={String(isSupported)} connected={String(connected)}</div>
+          {debugLogs.length === 0 && <div className="text-white/30">אין לוגים עדיין</div>}
+          {debugLogs.map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+      )}
     </main>
   );
 }
