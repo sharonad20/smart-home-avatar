@@ -136,8 +136,13 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
     turnActiveRef.current = false;
     procRef.current?.disconnect();
     srcNodeRef.current?.disconnect();
-    procRef.current  = null;
+    procRef.current   = null;
     srcNodeRef.current = null;
+    // Release mic so SpeechRecognition can use it between turns
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    captureCtxRef.current?.close();
+    captureCtxRef.current = null;
     emit('idle');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -209,10 +214,21 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
 
   // ── Activate a turn: start streaming mic to Gemini ────────────────────────
 
-  const activateTurn = useCallback((timeoutMs = 20_000) => {
+  const activateTurn = useCallback(async (timeoutMs = 20_000) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    if (!streamRef.current || !captureCtxRef.current) return;
     if (turnActiveRef.current) return;
+
+    // Open mic for this turn (released after turn ends so SpeechRecognition can use it between turns)
+    if (!streamRef.current || !captureCtxRef.current) {
+      try {
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current     = mic;
+        captureCtxRef.current = new AudioContext({ sampleRate: 16000 });
+      } catch (err) {
+        console.error('[GeminiLive] mic open failed', err);
+        return;
+      }
+    }
 
     turnActiveRef.current   = true;
     turnCompleteRef.current = false;
@@ -451,11 +467,8 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
     ws.onclose   = (ev) => { if (ev.code !== 1000) console.error('[GeminiLive] closed unexpectedly', ev.code, ev.reason); setConnected(false); emit('idle'); };
     ws.onerror   = (ev) => { console.error('[GeminiLive] error', ev); setConnected(false); emit('idle'); };
 
-    // Open mic now so first activation has no delay
-    const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-    streamRef.current     = mic;
-    captureCtxRef.current = new AudioContext({ sampleRate: 16000 });
-    playCtxRef.current    = new AudioContext({ sampleRate: 24000 });
+    // Mic opens lazily in activateTurn() so SpeechRecognition keeps mic access between turns
+    playCtxRef.current = new AudioContext({ sampleRate: 24000 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devices]);
 
