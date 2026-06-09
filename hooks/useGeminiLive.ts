@@ -136,13 +136,10 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
     turnActiveRef.current = false;
     procRef.current?.disconnect();
     srcNodeRef.current?.disconnect();
-    procRef.current   = null;
+    procRef.current    = null;
     srcNodeRef.current = null;
-    // Release mic so SpeechRecognition can use it between turns
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    captureCtxRef.current?.close();
-    captureCtxRef.current = null;
+    // Keep stream + AudioContext open — just disconnect the ScriptProcessor.
+    // SpeechRecognition coexists fine with an idle AudioContext on the same mic.
     emit('idle');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -477,7 +474,9 @@ export function useGeminiLive({ devices, onStateChange, onTranscript, onDeviceAc
   const disconnect = useCallback(() => {
     stopTurnRef.current();
     streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
     captureCtxRef.current?.close();
+    captureCtxRef.current = null;
     playCtxRef.current?.close();
     wsRef.current?.close();
     wsRef.current       = null;
