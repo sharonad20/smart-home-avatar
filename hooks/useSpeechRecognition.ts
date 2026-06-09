@@ -127,27 +127,23 @@ export function useSpeechRecognition({
 
         if (containsWakeWord(combined)) {
           const rest = stripWakeWord(combined).trim();
+          // Always abort recognition before calling onWakeWord so the mic is free
+          // for the caller (e.g. Gemini's getUserMedia in activateTurn)
+          clearDebounce();
+          clearCommandTimer();
+          accumulatedRef.current  = '';
+          modeRef.current         = 'wake';
+          isProcessingRef.current = true;
+          isSpeakingRef.current   = true;   // prevent onend from restarting
+          recognitionRef.current?.abort();
+
           if (rest.length > 2) {
-            // Wake word + inline command — Web Speech transcript is sufficient
-            clearDebounce();
-            clearCommandTimer();
-            accumulatedRef.current  = '';
-            modeRef.current         = 'wake';
-            isProcessingRef.current = true;
             onWakeWordRef.current();
             onCommandReadyRef.current(rest);
           } else if (onReadyToRecordRef.current) {
-            // Groq mode: abort STT and let caller record via MediaRecorder
-            clearDebounce();
-            clearCommandTimer();
-            accumulatedRef.current  = '';
-            modeRef.current         = 'wake';
-            isProcessingRef.current = true;
-            recognitionRef.current?.abort();
             onWakeWordRef.current();
             onReadyToRecordRef.current();
           } else {
-            enterCommandMode();
             onWakeWordRef.current();
           }
         }
