@@ -1,6 +1,6 @@
 'use client';
 
-export const WAKE_WORDS = ['היי בית', 'הי בית', 'בית חכם', 'hey bait', 'hey bayit'];
+export const WAKE_WORDS = ['אלברט', 'albert', 'hey albert'];
 
 export function containsWakeWord(transcript: string): boolean {
   const lower = transcript.trim().toLowerCase();
@@ -30,13 +30,18 @@ export function getBestHebrewVoice(): SpeechSynthesisVoice | null {
     (v) => v.lang.startsWith('he') || v.lang.startsWith('iw'),
   );
 
-  const maleNames = ['male', 'david', 'moshe', 'yossi', 'man', 'guy'];
+  // Prefer Microsoft Edge neural voices first (best quality, free in Edge browser)
+  const edgeNeural = hebrew.find((v) => v.name.toLowerCase().includes('avri'));
+  const edgeFallback = hebrew.find((v) =>
+    ['online', 'natural', 'neural'].some((n) => v.name.toLowerCase().includes(n)),
+  );
+  const maleNames = ['male', 'david', 'moshe', 'yossi', 'man', 'guy', 'avri'];
   const male = hebrew.find((v) =>
     maleNames.some((n) => v.name.toLowerCase().includes(n)),
   );
   const local = hebrew.find((v) => v.localService);
 
-  cachedHebrewVoice = male ?? local ?? hebrew[0] ?? null;
+  cachedHebrewVoice = edgeNeural ?? edgeFallback ?? male ?? local ?? hebrew[0] ?? null;
   return cachedHebrewVoice;
 }
 

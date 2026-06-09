@@ -1,115 +1,120 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
-import { AudioVisualizer } from '@/components/AudioVisualizer';
 import { DevicePanel } from '@/components/DevicePanel';
 import { QuickCommands } from '@/components/QuickCommands';
 import { TimeDisplay } from '@/components/TimeDisplay';
-import { ParticleBackground } from '@/components/ParticleBackground';
+import dynamic from 'next/dynamic';
+const AudioVisualizer = dynamic(
+  () => import('@/components/AudioVisualizer').then((m) => m.AudioVisualizer),
+  { ssr: false },
+);
+const ParticleBackground = dynamic(
+  () => import('@/components/ParticleBackground').then((m) => m.ParticleBackground),
+  { ssr: false },
+);
 import { useAvatarState } from '@/hooks/useAvatarState';
+import { useGeminiLive, type LiveState } from '@/hooks/useGeminiLive';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
-import { processCommand } from '@/lib/avatar-api';
-import { initialDevices, type Device } from '@/lib/devices';
-import type { Action } from '@/lib/avatar-api';
+import { fetchDevices, toggleDevice } from '@/lib/avatar-api';
+import { type Device } from '@/lib/devices';
 
 export default function HomePage() {
   const avatarState = useAvatarState();
-  const [devices, setDevices] = useState<Device[]>(initialDevices);
-  const [micStarted, setMicStarted] = useState(false);
-  const [micError, setMicError] = useState(false);
+  const [devices, setDevices] = useState<Device[]>([]);
 
-  // ── Command pipeline ──────────────────────────────────────────────────────
-  const handleCommandReady = useCallback(
-    async (transcript: string) => {
-      if (!transcript.trim()) {
-        avatarState.setIdle();
-        return;
-      }
+  useEffect(() => {
+    fetchDevices().then((real) => { if (real.length > 0) setDevices(real); });
+  }, []);
 
-      avatarState.setThinking();
+  // ── Device action from Gemini function call ───────────────────────────────
+  const handleDeviceAction = useCallback((entity_id: string, _service: string) => {
+    const isOn = _service === 'turn_on' || _service === 'open_cover';
+    setDevices((prev) => prev.map((d) => d.id === entity_id ? { ...d, isOn } : d));
+  }, []);
 
-      let response: { responseText: string; actions: Action[] };
-      try {
-        response = await processCommand(transcript);
-      } catch {
-        response = { responseText: 'מצטער, אירעה שגיאה. נסה שוב.', actions: [] };
-      }
+  // ── Avatar state bridge ───────────────────────────────────────────────────
+  const pauseRef   = useRef<() => void>(() => {});
+  const resumeRef  = useRef<() => void>(() => {});
 
-      // Apply device actions
-      setDevices((prev) => {
-        let next = [...prev];
-        for (const action of response.actions) {
-          if (action.type === 'toggle_device' && action.deviceId !== undefined) {
-            next = next.map((d) =>
-              d.id === action.deviceId ? { ...d, isOn: action.state ?? !d.isOn } : d,
-            );
-          }
-        }
-        return next;
-      });
+  const handleStateChange = useCallback((s: LiveState) => {
+    if (s === 'idle')           { avatarState.setIdle();      resumeRef.current(); }
+    else if (s === 'listening') { avatarState.setListening(); }
+    else if (s === 'thinking')  { avatarState.setThinking();  }
+    else if (s === 'speaking')  { avatarState.setSpeaking(''); pauseRef.current(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      avatarState.setSpeaking(response.responseText);
-      sayText(response.responseText);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [avatarState],
-  );
-
-  // ── TTS ───────────────────────────────────────────────────────────────────
-  const { sayText } = useSpeechSynthesis({
-    onEnd: () => avatarState.setIdle(),
+  // ── Gemini Live hook ──────────────────────────────────────────────────────
+  const { connected, connect, disconnect, activateTurn, sendText } = useGeminiLive({
+    devices: devices.map((d) => ({
+      entity_id:     d.id,
+      friendly_name: d.name,
+      state:         d.isOn ? 'on' : 'off',
+    })),
+    onStateChange:  handleStateChange,
+    onTranscript:   avatarState.setTranscript,
+    onDeviceAction: handleDeviceAction,
   });
 
-  // ── STT ───────────────────────────────────────────────────────────────────
-  const { isSupported, startListening, stopListening, triggerCommandMode } =
+  // ── Wake word detection (browser SpeechRecognition, no token cost) ────────
+  const { isSupported, startListening, stopListening, pauseForSpeaking, resumeAfterSpeaking } =
     useSpeechRecognition({
-      onWakeWord: () => avatarState.setListening(),
-      onCommandReady: handleCommandReady,
-      onInterimTranscript: avatarState.setTranscript,
+      onWakeWord: () => {
+        if (connected) activateTurn();
+      },
+      onCommandReady:      () => {},   // Gemini handles commands, not us
+      onInterimTranscript: () => {},
     });
 
-  // ── Mic init ──────────────────────────────────────────────────────────────
-  const handleStartMic = () => {
-    if (!isSupported) {
-      setMicError(true);
-      return;
-    }
-    startListening();
-    setMicStarted(true);
+  // Wire pause/resume into the state bridge
+  useEffect(() => { pauseRef.current  = pauseForSpeaking;    }, [pauseForSpeaking]);
+  useEffect(() => { resumeRef.current = resumeAfterSpeaking; }, [resumeAfterSpeaking]);
+
+  // Start wake word listening when connected, stop when disconnected
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    if (!mounted) return;
+    if (connected && isSupported) startListening();
+    else stopListening();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, connected, isSupported]);
+
+  // ── Connect / disconnect ──────────────────────────────────────────────────
+  const handleConnect = async () => {
+    await connect();
   };
 
-  // ── Quick command button ──────────────────────────────────────────────────
-  const handleQuickCommand = useCallback(
-    (transcript: string) => {
-      if (avatarState.state !== 'idle') return;
-      avatarState.setListening();
-      avatarState.setTranscript(transcript);
-      setTimeout(() => handleCommandReady(transcript), 400);
-    },
-    [avatarState, handleCommandReady],
-  );
+  const handleDisconnect = () => {
+    stopListening();
+    disconnect();
+  };
 
-  // ── Orb tap (manual trigger) ──────────────────────────────────────────────
+  // ── Orb tap: connect on first tap, activate turn if already connected ─────
   const handleOrbTap = () => {
-    if (avatarState.state === 'idle') {
-      avatarState.setListening();
-      if (!micStarted) {
-        handleStartMic();
-      } else {
-        triggerCommandMode();
-      }
-    } else if (avatarState.state === 'speaking') {
-      stopListening();
-      avatarState.setIdle();
+    if (!connected) {
+      handleConnect();
+    } else if (avatarState.state === 'idle') {
+      activateTurn();
     }
   };
 
-  // ── Device toggle ─────────────────────────────────────────────────────────
-  const handleDeviceToggle = (id: string) => {
-    setDevices((prev) => prev.map((d) => (d.id === id ? { ...d, isOn: !d.isOn } : d)));
-  };
+  // ── Manual device toggle ──────────────────────────────────────────────────
+  const handleDeviceToggle = useCallback((id: string) => {
+    const device = devices.find((d) => d.id === id);
+    if (!device) return;
+    const newState = !device.isOn;
+    setDevices((prev) => prev.map((d) => (d.id === id ? { ...d, isOn: newState } : d)));
+    toggleDevice(id, newState);
+  }, [devices]);
+
+  // ── Quick command ─────────────────────────────────────────────────────────
+  const handleQuickCommand = useCallback((text: string) => {
+    if (!connected) return;
+    sendText(text);
+  }, [connected, sendText]);
 
   const isBusy = avatarState.state !== 'idle';
 
@@ -124,54 +129,58 @@ export default function HomePage() {
       <ParticleBackground />
 
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
-      <header className="relative z-10 flex items-start justify-between px-6 pt-5 pb-2">
+      <header className="relative z-20 flex items-start justify-between px-6 pt-5 pb-2">
         <TimeDisplay />
-
         <div className="flex items-center gap-3">
+          {connected && (
+            <button
+              onClick={handleDisconnect}
+              title="נתק"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-lg
+                border transition-all duration-150 active:scale-90
+                bg-red-500/25 border-red-400/50 text-red-300 hover:bg-red-500/35"
+            >
+              ✕
+            </button>
+          )}
           <DevicePanel devices={devices} onToggle={handleDeviceToggle} />
         </div>
       </header>
 
       {/* ── Centre ──────────────────────────────────────────────────────── */}
       <section className="relative z-10 flex-1 flex items-center justify-center">
-        {/* Visualizer ring sits behind avatar */}
         <div className="relative flex items-center justify-center">
           <AudioVisualizer state={avatarState.state} />
           <div
             className="relative cursor-pointer"
             onClick={handleOrbTap}
             role="button"
-            aria-label="הפעל מאזין"
+            aria-label="חבר לאלברט"
           >
             <Avatar state={avatarState.state} transcript={avatarState.transcript} />
           </div>
         </div>
       </section>
 
-      {/* ── Mic start prompt (first launch) ─────────────────────────────── */}
-      {!micStarted && (
+      {/* ── Connect prompt ───────────────────────────────────────────────── */}
+      {!connected && (
         <div className="relative z-10 flex flex-col items-center gap-3 pb-4">
           <button
-            onClick={handleStartMic}
+            onClick={handleConnect}
             className="px-8 py-3 rounded-full text-base font-medium
               bg-indigo-500/20 border border-indigo-400/30 text-indigo-300
-              hover:bg-indigo-500/30 active:scale-95
-              transition-all duration-150"
+              hover:bg-indigo-500/30 active:scale-95 transition-all duration-150"
           >
-            {micError ? '⚠️ אין גישה למיקרופון — השתמש בכפתורים' : '🎤 הפעל האזנה'}
+            🎤 התחבר לאלברט
           </button>
-          {!micError && (
-            <p className="text-xs text-white/30">
-              אמור &quot;היי בית&quot; כדי להתחיל
-            </p>
-          )}
+          <p className="text-xs text-white/30">אמור &quot;אלברט&quot; כדי להתחיל</p>
         </div>
       )}
 
-      {/* Wake word hint when mic is active and idle */}
-      {micStarted && avatarState.state === 'idle' && (
+      {/* ── Hints ───────────────────────────────────────────────────────── */}
+      {connected && avatarState.state === 'idle' && (
         <div className="relative z-10 text-center pb-2">
-          <p className="text-xs text-white/20">אמור &quot;היי בית&quot; — או לחץ על הגלגל</p>
+          <p className="text-xs text-white/20">אמור &quot;אלברט&quot; — או לחץ על הגלגל</p>
         </div>
       )}
 
@@ -184,7 +193,7 @@ export default function HomePage() {
 
       {/* ── Quick commands ───────────────────────────────────────────────── */}
       <footer className="relative z-10">
-        <QuickCommands onCommand={handleQuickCommand} disabled={isBusy} />
+        <QuickCommands onCommand={handleQuickCommand} disabled={isBusy || !connected} />
       </footer>
     </main>
   );

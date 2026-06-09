@@ -13,7 +13,7 @@ export function DevicePanel({ devices, onToggle }: DevicePanelProps) {
   const activeCount = devices.filter((d) => d.isOn).length;
 
   return (
-    <div className="relative">
+    <div className="relative z-50">
       {/* Toggle button */}
       <button
         onClick={() => setIsOpen((v) => !v)}

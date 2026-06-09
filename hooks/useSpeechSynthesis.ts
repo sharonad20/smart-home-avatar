@@ -13,11 +13,7 @@ export function useSpeechSynthesis({ onStart, onEnd }: UseSpeechSynthesisOptions
   const [hasHebrewVoice, setHasHebrewVoice] = useState(false);
 
   useEffect(() => {
-    const check = () => {
-      const voice = getBestHebrewVoice();
-      setHasHebrewVoice(!!voice);
-    };
-
+    const check = () => setHasHebrewVoice(!!getBestHebrewVoice());
     check();
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.onvoiceschanged = check;
@@ -30,14 +26,8 @@ export function useSpeechSynthesis({ onStart, onEnd }: UseSpeechSynthesisOptions
       onStart?.();
       speak(
         text,
-        () => {
-          setIsSpeaking(true);
-          onStart?.();
-        },
-        () => {
-          setIsSpeaking(false);
-          onEnd?.();
-        },
+        () => { setIsSpeaking(true); },
+        () => { setIsSpeaking(false); onEnd?.(); },
       );
     },
     [onStart, onEnd],
